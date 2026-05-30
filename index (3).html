@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Soccer OOP Visualizer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --green: #00c853;
+      --bg: #0a0f0d;
+      --card-bg: #111a14;
+      --card-border: #1e3328;
+      --text: #e8f5e9;
+      --text-muted: #7a9e82;
+      --forward: #ff5252;
+      --midfielder: #448aff;
+      --defender: #aa00ff;
+      --gk: #ffd700;
+      --base: #00c853;
+      --adt: #ff9100;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans KR', sans-serif;
+      min-height: 100vh;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(0,200,83,0.03) 40px, rgba(0,200,83,0.03) 41px),
+        repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(0,200,83,0.03) 40px, rgba(0,200,83,0.03) 41px);
+      pointer-events: none; z-index: 0;
+    }
+    .wrapper { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 40px 20px 80px; }
+
+    header { text-align: center; margin-bottom: 60px; }
+    header .eyebrow { font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: var(--green); margin-bottom: 8px; }
+    header h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(36px, 8vw, 72px); line-height: 1; letter-spacing: 2px; }
+    header h1 span { color: var(--green); }
+    header p { margin-top: 14px; color: var(--text-muted); font-size: 13px; }
+
+    /* 트리 */
+    .tree { display: flex; flex-direction: column; align-items: center; margin-bottom: 50px; }
+    .class-box {
+      border: 1.5px solid; border-radius: 10px; padding: 14px 28px;
+      text-align: center; min-width: 220px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .class-box .class-type { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 4px; }
+    .class-box .class-name { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; }
+    .class-box .class-desc { font-size: 11px; margin-top: 3px; opacity: 0.7; }
+    .box-adt  { border-color: var(--adt);  background: rgba(255,145,0,0.07);  color: var(--adt); }
+    .box-base { border-color: var(--base); background: rgba(0,200,83,0.07);   color: var(--base); cursor: pointer; }
+    .box-base:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,200,83,0.2); }
+
+    .connector-v { width: 2px; height: 32px; background: var(--card-border); margin: 0 auto; }
+
+    .branches {
+      display: flex; align-items: flex-start; justify-content: center;
+      width: 100%; position: relative;
+    }
+    .branches::before {
+      content: ''; position: absolute; top: 0; left: 16%; right: 16%; height: 1px;
+      background: var(--card-border);
+    }
+    .branch { display: flex; flex-direction: column; align-items: center; flex: 1; }
+    .branch-v { width: 2px; height: 28px; background: var(--card-border); }
+
+    .player-card {
+      border: 1.5px solid; border-radius: 12px; padding: 16px 20px;
+      text-align: center; cursor: pointer; width: 90%; max-width: 190px;
+      position: relative; overflow: hidden;
+      transition: transform 0.15s, box-shadow 0.2s;
+    }
+    .player-card::after { content: '▶ 클릭'; font-size: 10px; position: absolute; bottom: 6px; right: 10px; opacity: 0.4; letter-spacing: 1px; }
+    .player-card:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
+    .player-card:active { transform: scale(0.97); }
+    .card-forward  { border-color: var(--forward);    background: rgba(255,82,82,0.08);   color: var(--forward); }
+    .card-mid      { border-color: var(--midfielder); background: rgba(68,138,255,0.08);  color: var(--midfielder); }
+    .card-defender { border-color: var(--defender);   background: rgba(170,0,255,0.08);   color: var(--defender); }
+    .card-gk       { border-color: var(--gk);         background: rgba(255,215,0,0.08);   color: var(--gk); }
+    .player-card .pos-label { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; opacity: 0.7; margin-bottom: 4px; }
+    .player-card .pos-name  { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px; }
+    .player-card .pos-player { font-size: 11px; margin-top: 4px; opacity: 0.6; }
+    .player-card .pos-method { margin-top: 8px; font-size: 10px; background: rgba(255,255,255,0.05); border-radius: 4px; padding: 4px 8px; font-family: monospace; opacity: 0.8; }
+
+    /* 액션 패널 */
+    .action-panel { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 28px; margin-bottom: 40px; }
+    .action-panel h2 { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; color: var(--text-muted); margin-bottom: 20px; }
+    .action-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    @media (max-width: 700px) { .action-grid { grid-template-columns: 1fr 1fr; } }
+    .action-group { display: flex; flex-direction: column; gap: 6px; }
+    .action-group-label { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 2px; }
+    .action-group-label.fwd { color: var(--forward); }
+    .action-group-label.mid { color: var(--midfielder); }
+    .action-group-label.def { color: var(--defender); }
+    .action-group-label.gk  { color: var(--gk); }
+    .action-btn {
+      background: rgba(255,255,255,0.04); border: 1px solid var(--card-border);
+      color: var(--text); padding: 9px 12px; border-radius: 7px;
+      font-family: 'Noto Sans KR', sans-serif; font-size: 12px;
+      cursor: pointer; text-align: left;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+    .action-btn:hover { transform: translateX(3px); }
+    .action-btn.fwd:hover { background: rgba(255,82,82,0.15);   border-color: var(--forward); }
+    .action-btn.mid:hover { background: rgba(68,138,255,0.15);  border-color: var(--midfielder); }
+    .action-btn.def:hover { background: rgba(170,0,255,0.15);   border-color: var(--defender); }
+    .action-btn.gk:hover  { background: rgba(255,215,0,0.15);   border-color: var(--gk); }
+
+    /* 터미널 */
+    .terminal { background: #060e08; border: 1px solid var(--card-border); border-radius: 12px; padding: 20px 24px; min-height: 130px; }
+    .terminal-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; } .dot-y { background: #febc2e; } .dot-g { background: #28c840; }
+    .terminal-title { font-size: 11px; color: var(--text-muted); margin-left: 6px; letter-spacing: 2px; }
+    #output { font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.8; color: #b9f6ca; white-space: pre-wrap; }
+    .line-new { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateX(-6px); } to { opacity:1; } }
+    .prompt { color: var(--green); }
+    .out-forward  { color: var(--forward); }
+    .out-mid      { color: var(--midfielder); }
+    .out-defender { color: var(--defender); }
+    .out-gk       { color: var(--gk); }
+    .out-base     { color: var(--base); }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <p class="eyebrow">Data Structures · Assignment 2 · OOP Visualization</p>
+    <h1>Soccer<span>OOP</span></h1>
+    <p>클래스 노드를 클릭하거나 액션 버튼을 눌러 다형성(Polymorphism)을 확인하세요</p>
+  </header>
+
+  <!-- 상속 트리 -->
+  <div class="tree">
+    <!-- ADT -->
+    <div class="class-box box-adt">
+      <div class="class-type">Abstract Class</div>
+      <div class="class-name">SoccerPlayerADT</div>
+      <div class="class-desc">name · position · back_number · introduce() · play_game()</div>
+    </div>
+    <div class="connector-v"></div>
+
+    <!-- Base -->
+    <div class="class-box box-base" onclick="triggerBase()">
+      <div class="class-type">Base Class</div>
+      <div class="class-name">SoccerPlayer</div>
+      <div class="class-desc">기본 play_game() 구현 · introduce()</div>
+    </div>
+    <div class="connector-v"></div>
+
+    <!-- 4 branches -->
+    <div class="branches">
+      <div class="branch">
+        <div class="branch-v"></div>
+        <div class="player-card card-forward" onclick="triggerForward('슈팅')">
+          <div class="pos-label">Forward</div>
+          <div class="pos-name">공격수</div>
+          <div class="pos-player">그리즈만 No.7</div>
+          <div class="pos-method">play_game(action="슈팅")</div>
+        </div>
+      </div>
+      <div class="branch">
+        <div class="branch-v"></div>
+        <div class="player-card card-mid" onclick="triggerMid('스루패스')">
+          <div class="pos-label">Midfielder</div>
+          <div class="pos-name">미드필더</div>
+          <div class="pos-player">코케 No.6</div>
+          <div class="pos-method">play_game(action="스루패스")</div>
+        </div>
+      </div>
+      <div class="branch">
+        <div class="branch-v"></div>
+        <div class="player-card card-defender" onclick="triggerDefender('태클')">
+          <div class="pos-label">Defender</div>
+          <div class="pos-name">수비수</div>
+          <div class="pos-player">히메네스 No.2</div>
+          <div class="pos-method">play_game(action="태클")</div>
+        </div>
+      </div>
+      <div class="branch">
+        <div class="branch-v"></div>
+        <div class="player-card card-gk" onclick="triggerGK('세이브')">
+          <div class="pos-label">Goalkeeper</div>
+          <div class="pos-name">골키퍼</div>
+          <div class="pos-player">오블락 No.13</div>
+          <div class="pos-method">play_game(action="세이브")</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 액션 패널 -->
+  <div class="action-panel">
+    <h2>▎ 액션 / 전술 실행</h2>
+    <div class="action-grid">
+
+      <div class="action-group">
+        <div class="action-group-label fwd">⚽ 공격수 (그리즈만)</div>
+        <button class="action-btn fwd" onclick="triggerForward('슈팅')">슈팅 시도</button>
+        <button class="action-btn fwd" onclick="triggerForward('헤딩')">헤딩 시도</button>
+        <button class="action-btn fwd" onclick="triggerForward('드리블 돌파')">드리블 돌파</button>
+        <button class="action-btn fwd" onclick="triggerForward('원투패스')">원투패스</button>
+        <button class="action-btn fwd" onclick="triggerForwardTactic('카운터 타깃')">전술: 카운터 타깃</button>
+        <button class="action-btn fwd" onclick="triggerForwardTactic('강한 압박')">전술: 강한 압박</button>
+      </div>
+
+      <div class="action-group">
+        <div class="action-group-label mid">🎯 미드필더 (코케)</div>
+        <button class="action-btn mid" onclick="triggerMid('스루패스')">스루패스</button>
+        <button class="action-btn mid" onclick="triggerMid('플레이메이킹')">플레이메이킹</button>
+        <button class="action-btn mid" onclick="triggerMid('프레싱')">프레싱</button>
+        <button class="action-btn mid" onclick="triggerMid('수비 가담')">수비 가담</button>
+        <button class="action-btn mid" onclick="triggerMidTactic('점유율 확보')">전술: 점유율 확보</button>
+      </div>
+
+      <div class="action-group">
+        <div class="action-group-label def">🛡 수비수 (히메네스)</div>
+        <button class="action-btn def" onclick="triggerDefender('태클')">태클</button>
+        <button class="action-btn def" onclick="triggerDefender('인터셉트')">인터셉트</button>
+        <button class="action-btn def" onclick="triggerDefender('클리어링')">클리어링</button>
+        <button class="action-btn def" onclick="triggerDefender('공중볼 경합')">공중볼 경합</button>
+        <button class="action-btn def" onclick="triggerDefenderTactic('오프사이드 트랩')">전술: 오프사이드 트랩</button>
+      </div>
+
+      <div class="action-group">
+        <div class="action-group-label gk">🧤 골키퍼 (오블락)</div>
+        <button class="action-btn gk" onclick="triggerGK('세이브')">세이브</button>
+        <button class="action-btn gk" onclick="triggerGK('숏킥')">숏킥</button>
+        <button class="action-btn gk" onclick="triggerGK('롱킥')">롱킥</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 터미널 -->
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+      <span class="terminal-title">soccer_oop.py · play_game() output</span>
+    </div>
+    <div id="output"><span class="prompt">$ </span>클래스 노드 또는 버튼을 클릭하면 play_game() 결과가 출력됩니다.</div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--adt)"></div>Abstract Class</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--base)"></div>Base Class</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--forward)"></div>Forward</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--midfielder)"></div>Midfielder</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--defender)"></div>Defender</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--gk)"></div>Goalkeeper</div>
+  </div>
+
+</div>
+<script>
+  const out = document.getElementById('output');
+  let lines = [];
+
+  function addLine(html) {
+    lines.push(html);
+    if (lines.length > 20) lines.shift();
+    out.innerHTML = lines.map((l, i) =>
+      i === lines.length - 1 ? `<span class="line-new">${l}</span>` : l
+    ).join('\n');
+  }
+  function p(cls, text) {
+    addLine(`<span class="prompt">$ </span><span class="${cls}">${text}</span>`);
+  }
+  function sub(text) {
+    addLine(`<span style="color:#444">  └ ${text}</span>`);
+  }
+
+  // Forward
+  function triggerForward(action) {
+    const map = {
+      '슈팅': '슈팅 시도 및 득점 🎯',
+      '헤딩': '헤딩 시도 및 득점 💥',
+      '드리블 돌파': '드리블 돌파 시도! 수비 제침 💨',
+      '원투패스': '원투패스로 공간 창출 🔄',
+    };
+    p('out-forward', `[그리즈만(공격수)] ${map[action]}`);
+    sub(`Forward.play_game(action="${action}") → 오버라이딩된 메서드 실행`);
+  }
+  function triggerForwardTactic(tactic) {
+    const map = { '카운터 타깃': '전방 위치 및 역습 대기 🏃', '강한 압박': '전방 압박 실행 💪' };
+    p('out-forward', `[그리즈만(공격수)] ${map[tactic]}`);
+    sub(`Forward.play_game(tactic="${tactic}") → 오버라이딩된 메서드 실행`);
+  }
+
+  // Midfielder
+  function triggerMid(action) {
+    const map = {
+      '스루패스': '스루패스로 찬스 제조 🎯',
+      '플레이메이킹': '플레이메이킹으로 찬스 제조 ✨',
+      '프레싱': '강한 프레싱으로 볼 탈취 🔥',
+      '수비 가담': '수비 가담으로 위기 차단 🛡',
+    };
+    p('out-mid', `[코케(미드필더)] ${map[action]}`);
+    sub(`Midfielder.play_game(action="${action}") → 오버라이딩된 메서드 실행`);
+  }
+  function triggerMidTactic(tactic) {
+    p('out-mid', `[코케(미드필더)] 중원 점유율 강화 🔄`);
+    sub(`Midfielder.play_game(tactic="${tactic}") → 오버라이딩된 메서드 실행`);
+  }
+
+  // Defender
+  function triggerDefender(action) {
+    const map = {
+      '태클': '태클 성공! 🦵',
+      '인터셉트': '인터셉트 성공! ✋',
+      '클리어링': '클리어링으로 위기 탈출 👊',
+      '공중볼 경합': '공중볼 경합 시도 💪',
+    };
+    p('out-defender', `[히메네스(수비수)] ${map[action]}`);
+    sub(`Defender.play_game(action="${action}") → 오버라이딩된 메서드 실행`);
+  }
+  function triggerDefenderTactic(tactic) {
+    p('out-defender', `[히메네스(수비수)] 수비 라인 전진! 오프사이드 트랩 📏`);
+    sub(`Defender.play_game(tactic="${tactic}") → 오버라이딩된 메서드 실행`);
+  }
+
+  // Goalkeeper
+  function triggerGK(action) {
+    const map = {
+      '세이브': '완벽한 세이브! 실점 막음! 🧤',
+      '숏킥': '정확한 숏킥으로 빌드업 시작 🦶',
+      '롱킥': '전방 롱볼 전개! 💨',
+    };
+    p('out-gk', `[오블락(골키퍼)] ${map[action]}`);
+    sub(`Goalkeeper.play_game(action="${action}") → 오버라이딩된 메서드 실행`);
+  }
+
+  // Base
+  function triggerBase() {
+    p('out-base', `[훌리안(SoccerPlayer)] 지역 방어 수행 (기본 구현)`);
+    sub(`SoccerPlayer.play_game() → 오버라이딩 없음, 기본 메서드 실행`);
+  }
+</script>
+</body>
+</html>
